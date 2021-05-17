@@ -25,7 +25,7 @@ RUN \
     apt-transport-https \
     build-essential \
     ca-certificates \
-    python3-sawtooth-sdk \
+    python3.7-sawtooth-sdk \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
@@ -34,4 +34,4 @@ EXPOSE 4004/tcp
 WORKDIR /project/cookiejar/pyprocessor
 ENV PATH "$PATH:/project/cookiejar/pyprocessor"
 
-CMD bash -c 'python3 ./cookiejar_tp.py'
+CMD bash -c 'python3.7 ./cookiejar_tp.py'

@@ -36,10 +36,16 @@ from sawtooth_sdk.protobuf.batch_pb2 import Batch
 
 # The Transaction Family Name
 FAMILY_NAME = 'cookiejar'
+
+
 # TF Prefix is first 6 characters of SHA-512("cookiejar"), a4d219
 
 def _hash(data):
     return hashlib.sha512(data).hexdigest()
+
+
+def create_address(mode='user', name='name'):
+    return _hash(FAMILY_NAME.encode())[:6] + _hash(mode.encode())[:6] + _hash(name.encode())[:58]
 
 class CookieJarClient(object):
     '''Client Cookie Jar class
@@ -69,8 +75,7 @@ class CookieJarClient(object):
         try:
             private_key = Secp256k1PrivateKey.from_hex(private_key_str)
         except ParseError as err:
-            raise Exception( \
-                'Failed to load private key: {}'.format(str(err)))
+            raise Exception( 'Failed to load private key: {}'.format(str(err)))
 
         self._signer = CryptoFactory(create_context('secp256k1')) \
             .new_signer(private_key)
@@ -78,7 +83,7 @@ class CookieJarClient(object):
 
         # Address is 6-char TF prefix + hash of "mycookiejar"'s public key
         self._address = _hash(FAMILY_NAME.encode('utf-8'))[0:6] + \
-            _hash(self._public_key.encode('utf-8'))[0:64]
+                        _hash(self._public_key.encode('utf-8'))[0:64]
 
     # For each CLI command, add a method to:
     # 1. Do any additional handling, if required
@@ -103,7 +108,7 @@ class CookieJarClient(object):
             return base64.b64decode(yaml.safe_load(result)["data"])
         except BaseException:
             return None
-			
+
     def clear(self):
         '''Empty the cookie jar.'''
         try:
@@ -112,12 +117,14 @@ class CookieJarClient(object):
             raise Exception('Encountered an error during clear')
         return ret_amount
 
-    def insert_patient_details(self,details):
+    def insert(self, info):
         try:
-            res = self._wrap_and_send("insert",details,wait=10)
+            #paddr = create_address(mode='voting', name=info)
+            res = self._wrap_and_send("insert", info, wait = 10)
         except BaseException:
             return None
         return res
+
 
     def _send_to_rest_api(self, suffix, data=None, content_type=None):
         '''Send a REST command to the Validator via the REST API.
@@ -160,17 +167,16 @@ class CookieJarClient(object):
             start_time = time.time()
             while waited < wait:
                 result = self._send_to_rest_api("batch_statuses?id={}&wait={}"
-                                               .format(batch_id, wait))
+                                                .format(batch_id, wait))
                 status = yaml.safe_load(result)['data'][0]['status']
                 waited = time.time() - start_time
 
                 if status != 'PENDING':
                     return result
             return "Transaction timed out after waiting {} seconds." \
-               .format(wait)
+                .format(wait)
         else:
             return result
-
 
     def _wrap_and_send(self, action, amount, wait=None):
         '''Create a transaction, then wrap it in a batch.
@@ -181,7 +187,7 @@ class CookieJarClient(object):
 
         # Generate a CSV UTF-8 encoded string as the payload.
         raw_payload = ",".join([action, str(amount)])
-        payload = raw_payload.encode() # Convert Unicode to bytes
+        payload = raw_payload.encode()  # Convert Unicode to bytes
 
         # Construct the address where we'll store our state.
         # We just have one input and output address (the same one).
@@ -227,9 +233,8 @@ class CookieJarClient(object):
 
         # Send batch_list to the REST API
         result = self._send_to_rest_api("batches",
-                                       batch_list.SerializeToString(),
-                                       'application/octet-stream')
+                                        batch_list.SerializeToString(),
+                                        'application/octet-stream')
 
         # Wait until transaction status is COMMITTED, error, or timed out
         return self._wait_for_status(batch_id, wait, result)
-

@@ -20,25 +20,34 @@ Parses command line arguments and passes to the CookieJarClient class
 to process.
 '''
 
+import json
+#import decryption
 import argparse
 import logging
 import os
 import sys
 import traceback
 
+
+#from flask import Flask, jsonify, request
+#from flask_cors import CORS
 from colorlog import ColoredFormatter
 from cookiejar_client import CookieJarClient
 
 KEY_NAME = 'mycookiejar'
 
 # hard-coded for simplicity (otherwise get the URL from the args in main):
-#DEFAULT_URL = 'http://localhost:8008'
+# DEFAULT_URL = 'http://localhost:8008'
 # For Docker:
 DEFAULT_URL = 'http://rest-api:8008'
 
+#
+# app= Flask(__name__)
+# CORS(app)
+
 def create_console_handler(verbose_level):
     '''Setup console logging.'''
-    del verbose_level # unused
+    del verbose_level  # unused
     clog = logging.StreamHandler()
     formatter = ColoredFormatter(
         "%(log_color)s[%(asctime)s %(levelname)-8s%(module)s]%(reset)s "
@@ -57,11 +66,13 @@ def create_console_handler(verbose_level):
     clog.setLevel(logging.DEBUG)
     return clog
 
+
 def setup_loggers(verbose_level):
     '''Setup logging.'''
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     logger.addHandler(create_console_handler(verbose_level))
+
 
 def create_parser(prog_name):
     '''Create the command line argument parser for the cookiejar CLI.'''
@@ -88,35 +99,52 @@ def create_parser(prog_name):
                                help='the number of cookies to eat')
     subparsers.add_parser('count',
                           help='show number of cookies in ' +
-                          'the cookie jar',
+                               'the cookie jar',
                           parents=[parent_parser])
-						  
+
     clear_subparser = subparsers.add_parser('clear',
-                                           help='empties cookie jar',
-                                           parents=[parent_parser])					  
-						  
+                                            help='empties cookie jar',
+                                            parents=[parent_parser])
+
+    insert_subparser = subparsers.add_parser('insert',
+                                             help='insert patient details',
+                                             parents=[parent_parser])
+    insert_subparser.add_argument('info',
+                                  type=str,
+                                  help='details')
+
     return parser
 
-
-'''@app.route("/MRA", methods=['POST'])
-def create_patient_details():
-	if request.method == 'POST':
-		patient_details = request.get_json(force=True)
-		cipher_text = patient_details['data']
-		info = decryption.data_decrypt(cipher_text)
-		insert_patient_details(info)'''
-
-
-def insert_patient_details(info):
-	privkeyfile = _get_private_keyfile(KEY_NAME)
-	client = CookieJarClient(base_url=DEFAULT_URL, key_file=privkeyfile)
-	client.create_patient_details(info)
 
 def _get_private_keyfile(key_name):
     '''Get the private key for key_name.'''
     home = os.path.expanduser("~")
     key_dir = os.path.join(home, ".sawtooth", "keys")
     return '{}/{}.priv'.format(key_dir, key_name)
+
+# @app.route("/MRA/insert", methods=['POST'])
+# def create_patient_details():
+#     if request.method == 'POST':
+#         info = request.get_json(force=True)
+#         insert_patient_details(info)
+#         return jsonify({'status': 'success'}), 201
+    '''if request.method == 'POST':
+	    patient_details = request.get_json(force=True)
+		cipher_text = patient_details['data']
+		info = decryption.data_decrypt(cipher_text)
+		insert_patient_details(info)'''
+
+def insert_patient_details(info):
+     privkeyfile = _get_private_keyfile(KEY_NAME)
+     client = CookieJarClient(base_url=DEFAULT_URL, key_file=privkeyfile)
+     response = client.insert(info)
+     print("Insert response:{}".format(response))
+
+'''def insert_patient_details(args):
+    privkeyfile = _get_private_keyfile(KEY_NAME)
+    client = CookieJarClient(base_url=DEFAULT_URL, key_file=privkeyfile)
+    response = client.insert(args.info)
+    print("Insert response:{}".format(response))'''
 
 def do_bake(args):
     '''Subcommand to bake cookies.  Calls client class to do the baking.'''
@@ -125,12 +153,14 @@ def do_bake(args):
     response = client.bake(args.amount)
     print("Bake Response: {}".format(response))
 
+
 def do_eat(args):
     '''Subcommand to eat cookies.  Calls client class to do the eating.'''
     privkeyfile = _get_private_keyfile(KEY_NAME)
     client = CookieJarClient(base_url=DEFAULT_URL, key_file=privkeyfile)
     response = client.eat(args.amount)
     print("Eat Response: {}".format(response))
+
 
 def do_count():
     '''Subcommand to count cookies.  Calls client class to do the counting.'''
@@ -141,13 +171,15 @@ def do_count():
         print("\nThe cookie jar has {} cookies.\n".format(data.decode()))
     else:
         raise Exception("Cookie jar data not found")
-		
+
+
 def do_clear():
     '''Subcommand to empty cookie jar. Calls client class to do the clearing.'''
     privkeyfile = _get_private_keyfile(KEY_NAME)
     client = CookieJarClient(base_url=DEFAULT_URL, key_file=privkeyfile)
     response = client.clear()
     print("Clear Response: {}".format(response))
+
 
 def main(prog_name=os.path.basename(sys.argv[0]), args=None):
     '''Entry point function for the client CLI.'''
@@ -181,5 +213,7 @@ def main(prog_name=os.path.basename(sys.argv[0]), args=None):
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
+
 if __name__ == '__main__':
     main()
+

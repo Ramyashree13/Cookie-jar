@@ -18,10 +18,14 @@ FROM ubuntu:xenial
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN \
- apt-get update; \
- apt-get install curl -y; \
+ if [ ! -z $HTTP_PROXY ] && [ -z $http_proxy ]; then \
+  http_proxy=$HTTP_PROXY; \
+ fi; \
+ if [ ! -z $HTTPS_PROXY ] && [ -z $https_proxy ]; then \
+  https_proxy=$HTTPS_PROXY; \
+ fi; \
  echo "deb http://repo.sawtooth.me/ubuntu/ci xenial universe" >> /etc/apt/sources.list \
- && curl -sSL 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0x8AA7AF1F1091A5FD' | apt-key add - \
+ && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 8AA7AF1F1091A5FD \
  && echo "deb [arch=amd64] http://repo.sawtooth.me/ubuntu/bumper/stable xenial universe" >> /etc/apt/sources.list \
  && apt-get update \
  && apt-get install -y -q --no-install-recommends \
@@ -72,7 +76,11 @@ RUN \
     python3-sawtooth-sdk \
     python3-sawtooth-cli \
  && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && pip3 install flask \
+    flask-cors \
+    pymysql \
+    PyCrypto
 
 WORKDIR /project/cookiejar/pyclient
 
